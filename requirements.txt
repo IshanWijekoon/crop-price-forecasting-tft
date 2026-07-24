@@ -1,0 +1,16 @@
+numpy
+pandas
+matplotlib
+scikit-learn
+statsmodels
+torch
+torchvision
+torchaudio
+lightning
+pytorch-forecasting
+pyyaml
+tqdm
+scipy
+jupyter
+notebook
+ipykernel

@@ -1,0 +1,26 @@
+# Experiment configuration placeholders for crop price forecasting research.
+# Model hyperparameters will be added in later milestones.
+
+paths:
+  raw: "data/raw"
+  processed: "data/processed"
+  external: "data/external"
+  artifacts: "artifacts"
+
+forecast:
+  # Target probabilistic forecast horizon in days.
+  horizon: 60
+  # Look-back window length used for sequence generation (to be tuned).
+  window_size: 90
+
+splits:
+  # Chronological split ratios (must sum to 1.0).
+  train: 0.70
+  validation: 0.15
+  test: 0.15
+
+random_seed: 42
+
+# Placeholder sections reserved for future model configuration.
+# sarimax: {}
+# tft: {}

@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crop-price-forecasting-tft"
+version = "0.1.0"
+description = "Evaluating Temporal Fusion Transformers against SARIMAX baselines for 60-day probabilistic crop price forecasting in Sri Lanka."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Ishan Madusanka" },
+]
+keywords = [
+    "time-series",
+    "forecasting",
+    "temporal-fusion-transformer",
+    "sarimax",
+    "agriculture",
+    "sri-lanka",
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "scikit-learn",
+    "statsmodels",
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "lightning",
+    "pytorch-forecasting",
+    "pyyaml",
+    "tqdm",
+    "scipy",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jupyter",
+    "notebook",
+    "ipykernel",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
