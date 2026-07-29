@@ -126,6 +126,14 @@ crop-price-forecasting-tft/
 6. Run walk-forward evaluation, compute metrics, and apply Diebold–Mariano tests.
 7. Document results for the research report / paper.
 
+## Project Team
+
+W M I Indrajith Madusanka
+Student ID: ITBIN-2313-0059
+
+A M Piumini Abeysinghe 
+Student ID: ITBIN-2313-0002
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
