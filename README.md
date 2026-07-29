@@ -128,11 +128,10 @@ crop-price-forecasting-tft/
 
 ## Project Team
 
-W M I Indrajith Madusanka
-Student ID: ITBIN-2313-0059
-
-A M Piumini Abeysinghe 
-Student ID: ITBIN-2313-0002
+| Name | Student ID |
+|------|------------|
+| W M I Indrajith Madusanka | ITBIN-2313-0059 |
+| A M Piumini Abeysinghe | ITBIN-2313-0002 |
 
 ## License
 
