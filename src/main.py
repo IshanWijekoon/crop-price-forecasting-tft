@@ -7,6 +7,7 @@ from typing import Callable
 
 from src.features.build_dataset import build_dataset
 from src.features.prepare_model_data import run_prepare
+from src.models.train import run_sarimax_stage, run_tft_stage
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -15,6 +16,8 @@ setup_logger("src")
 STAGES: dict[str, Callable[[Path], object]] = {
     "build": build_dataset,
     "prepare": run_prepare,
+    "sarimax": run_sarimax_stage,
+    "tft": run_tft_stage,
 }
 
 
@@ -22,7 +25,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Crop price forecasting research pipeline. "
-            "build: observed dataset; prepare: train-only Min-Max scaling and forecast windows."
+            "build: observed dataset; prepare: train-only Min-Max scaling and forecast windows; "
+            "sarimax / tft: fit the model and write 60-day quantile forecasts to artifacts/forecasts/."
         ),
     )
     parser.add_argument(

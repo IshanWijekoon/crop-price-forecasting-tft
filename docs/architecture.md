@@ -1,6 +1,6 @@
 # System Architecture
 
-This document describes the planned software architecture for the crop price forecasting research repository. Model training is **not** implemented in the current milestone; modules exist as stubs and documentation placeholders.
+This document describes the software architecture for the crop price forecasting research repository. Data build, input preparation, and both forecasting models are implemented; the evaluation modules are still stubs.
 
 ## Pipeline Overview
 
@@ -44,11 +44,11 @@ Responsibilities:
 - Calendar / temporal encodings
 - Train-only normalization / scaling
 
-### 4. Sequence Generation (future)
+### 4. Sequence Generation (`src/features/prepare_model_data.py`, `src/features/windows.py`)
 
-Convert engineered panels into supervised sequences using:
+Convert engineered panels into forecast windows using:
 
-- Look-back `window_size`
+- Look-back `window_size` (90 days)
 - Forecast `horizon` of 60 days
 
 Configured in `configs/config.yaml`.
@@ -57,8 +57,10 @@ Configured in `configs/config.yaml`.
 
 | Model | Role | Location |
 |-------|------|----------|
-| SARIMAX | Classical probabilistic baseline | `src/models/sarimax/` |
-| TFT | Deep probabilistic sequence model | `src/models/tft/` |
+| SARIMAX | Classical probabilistic baseline, one per crop | `src/models/sarimax/` |
+| TFT | Deep probabilistic sequence model, global across crops | `src/models/tft/` |
+
+Both write the same forecast table (`src/models/forecast_output.py`): one row per crop, forecast origin, and target day, with the observed price and q10/q50/q90.
 
 ### 6. Evaluation (`src/evaluation/`)
 
@@ -69,7 +71,7 @@ Configured in `configs/config.yaml`.
 
 ### 7. Entrypoint
 
-`src/main.py` will orchestrate preprocess → features → models → evaluate once implementations land. Today it only logs that the pipeline is a stub.
+`src/main.py` runs the stages `build`, `prepare`, `sarimax`, and `tft` in that order (`--stages` selects a subset). An evaluation stage will follow once `src/evaluation/` is implemented.
 
 ## Configuration
 

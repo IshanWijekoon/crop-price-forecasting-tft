@@ -14,6 +14,8 @@ forecast:
   quantiles: [0.1, 0.5, 0.9]
   # Days between consecutive forecast origins when cutting sliding windows.
   origin_step: 1
+  # Splits whose windows get forecasts written to artifacts/forecasts/.
+  predict_splits: ["validation", "test"]
 
 splits:
   # Chronological split ratios (must sum to 1.0).
@@ -101,15 +103,20 @@ features:
 sarimax:
   # One model per crop on the daily calendar; closed-market days are missing endog.
   seasonal_period: 7
+  # Model log price, so intervals are log-normal and stay positive.
+  log_target: true
   order_grid:
     p: [0, 1, 2]
+    # Picked by an ADF test on training quotes, not by AIC.
     d: [0, 1]
     q: [0, 1]
   seasonal_order_grid:
     P: [0, 1]
     D: [0]
     Q: [0, 1]
+  stationarity_alpha: 0.05
   information_criterion: "aic"
+  fit_maxiter: 200
   # Observed covariates shifted by the horizon so every value is known at the forecast origin.
   exog:
     - "diesel_lkr_per_litre"
@@ -124,7 +131,11 @@ tft:
   hidden_size: 16
   attention_head_size: 1
   hidden_continuous_size: 8
+  lstm_layers: 1
   dropout: 0.1
+  # Per-crop target normalizer; quantile loss is still computed in LKR/kg.
+  target_transformation: "log"
+  reduce_on_plateau_patience: 3
   learning_rate: 0.01
   batch_size: 64
   max_epochs: 30

@@ -4,7 +4,7 @@
 
 This repository supports a university research project that compares **Temporal Fusion Transformers (TFT)** with classical **SARIMAX** baselines for **60-day probabilistic** wholesale price forecasting of continuous-cycle cool-climate crops in Sri Lanka. The work targets decision-relevant uncertainty estimates (prediction intervals / quantiles), not point forecasts alone.
 
-The current milestone delivers a clean, research-ready project skeleton: folder structure, configuration, documentation, and stub modules for preprocessing, feature engineering, and evaluation. **Forecasting models are not implemented yet.**
+The current milestone builds the observed dataset, prepares model inputs, and fits both forecasting models, which write 60-day quantile forecasts for the validation and test windows. **Evaluation metrics, walk-forward validation, and statistical tests are not implemented yet.**
 
 ## Research Objective
 
@@ -44,16 +44,20 @@ Construct lag, rolling, and calendar/temporal features, then normalize predictor
 The `prepare` stage (`src/features/prepare_model_data.py`, `src/features/windows.py`) drops the warm-up rows, fits Min-Max on training rows only, and cuts sliding windows: a 90-day encoder and a 60-day decoder, with origins one day apart. Each window is assigned to the split that holds its whole decoder. Settings are in `configs/config.yaml` (`forecast`, `features`); see `docs/dataset.md`.
 
 ```bash
-python -m src.main                    # build, then prepare
+python -m src.main                    # build, prepare, sarimax, tft
 python -m src.main --stages prepare   # re-scale and re-window an existing panel
 ```
 
 ### Forecasting Models
 
-- **SARIMAX** — classical probabilistic baseline (`src/models/sarimax/`).
-- **TFT** — deep probabilistic sequence model via PyTorch Forecasting (`src/models/tft/`).
+```bash
+python -m src.main --stages sarimax tft
+```
 
-Both remain placeholders in this milestone.
+- **SARIMAX** (`src/models/sarimax/`): one model per crop on log price. Differencing is chosen by an ADF test and the order by AIC over the config grid (weekly seasonal period), on training rows only. Fitted parameters are re-applied at each forecast origin. Log-normal q10/q50/q90.
+- **TFT** (`src/models/tft/`): one PyTorch Forecasting model across crops, 90-day encoder, 60-day decoder, quantile loss at 0.1/0.5/0.9. Days without a quote get zero loss weight. Early stopping on the validation windows.
+
+Both write the same forecast table, one row per crop, forecast origin, and target day, to `artifacts/forecasts/{sarimax,tft}_forecasts.csv` (schema in `src/models/forecast_output.py`). Checkpoints, order selection, and training logs go to `artifacts/models/`. Both folders are gitignored.
 
 ### Evaluation
 
@@ -81,11 +85,13 @@ crop-price-forecasting-tft/
 │   ├── preprocessing/     # Cleaning, merging, missing values, time sync
 │   ├── features/          # Lag, rolling, temporal, normalization features
 │   ├── models/
-│   │   ├── sarimax/       # SARIMAX baseline (placeholder)
-│   │   └── tft/           # Temporal Fusion Transformer (placeholder)
+│   │   ├── sarimax/       # SARIMAX baseline
+│   │   ├── tft/           # Temporal Fusion Transformer
+│   │   ├── forecast_output.py  # Forecast table shared by both models
+│   │   └── train.py       # sarimax / tft pipeline stages
 │   ├── evaluation/        # Metrics, walk-forward CV, statistical tests
 │   ├── utils/             # Logging and helpers
-│   └── main.py            # Pipeline entrypoint (build, prepare)
+│   └── main.py            # Pipeline entrypoint (build, prepare, sarimax, tft)
 ├── configs/               # Experiment configuration (YAML)
 ├── docs/                  # Architecture and methodology notes
 ├── README.md
@@ -101,7 +107,7 @@ crop-price-forecasting-tft/
 | `notebooks/` | Exploratory analysis workspace |
 | `src/preprocessing/` | Reproducible cleaning and alignment |
 | `src/features/` | Feature construction templates |
-| `src/models/` | Model packages (documentation only for now) |
+| `src/models/` | SARIMAX and TFT training and forecasting |
 | `src/evaluation/` | Metric and validation stubs |
 | `src/utils/` | Shared utilities |
 | `configs/` | Hyperparameters and path defaults |
@@ -118,9 +124,9 @@ crop-price-forecasting-tft/
 - [x] Model inputs: column roles, train-only Min-Max scaling, horizon-lagged SARIMAX exogenous inputs, 90/60-day sliding windows (`python -m src.main --stages prepare`)
 - [x] Evaluation module (stubs)
 - [x] Documentation (`docs/`, model READMEs)
-- [ ] SARIMAX implementation
-- [ ] TFT implementation
-- [ ] Training pipeline
+- [x] SARIMAX implementation: ADF + AIC order selection per crop, 60-day log-normal quantile forecasts (`--stages sarimax`)
+- [x] TFT implementation: quantile TFT with observed-day loss weights and early stopping (`--stages tft`)
+- [x] Training pipeline: both models forecast every validation and test window into one shared table
 - [ ] Evaluation experiments and statistical tests
 
 ## Future Work
