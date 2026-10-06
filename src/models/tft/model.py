@@ -29,7 +29,7 @@ MODEL_NAME = "tft"
 CHECKPOINT_NAME = "tft-best"
 
 
-def _model_frame(data: ModelData) -> pd.DataFrame:
+def model_frame(data: ModelData) -> pd.DataFrame:
     roles = data.roles
     df = data.frame.copy()
     df[roles["time_idx"]] = df[roles["time_idx"]].astype(int)
@@ -41,20 +41,13 @@ def _model_frame(data: ModelData) -> pd.DataFrame:
     return df
 
 
-def build_datasets(cfg: dict[str, Any], data: ModelData) -> dict[str, TimeSeriesDataSet]:
-    """Training windows from the train split; validation and test windows reuse its encoders.
-
-    A split's windows have their whole decoder inside that split, matching
-    `forecast_windows.csv`. Encoders may reach back into earlier splits.
-    """
-    roles = data.roles
+def training_dataset(cfg: dict[str, Any], roles: dict[str, Any], rows: pd.DataFrame) -> TimeSeriesDataSet:
+    """Every full encoder/decoder window inside `rows` (a `model_frame` slice)."""
     tcfg = cfg["tft"]
     encoder, horizon = cfg["forecast"]["window_size"], cfg["forecast"]["horizon"]
     time_idx, group = roles["time_idx"], roles["group"]
-    df = _model_frame(data)
-
-    training = TimeSeriesDataSet(
-        df[df["split"].eq("train")],
+    return TimeSeriesDataSet(
+        rows,
         time_idx=time_idx,
         target=roles["target_filled"],
         group_ids=[group],
@@ -73,6 +66,18 @@ def build_datasets(cfg: dict[str, Any], data: ModelData) -> dict[str, TimeSeries
         add_encoder_length=False,
     )
 
+
+def build_datasets(cfg: dict[str, Any], data: ModelData) -> dict[str, TimeSeriesDataSet]:
+    """Training windows from the train split; validation and test windows reuse its encoders.
+
+    A split's windows have their whole decoder inside that split, matching
+    `forecast_windows.csv`. Encoders may reach back into earlier splits.
+    """
+    roles = data.roles
+    time_idx = roles["time_idx"]
+    df = model_frame(data)
+    training = training_dataset(cfg, roles, df[df["split"].eq("train")])
+
     datasets = {"train": training}
     order = ["train", "validation", "test"]
     for split in order[1:]:
@@ -87,14 +92,11 @@ def build_datasets(cfg: dict[str, Any], data: ModelData) -> dict[str, TimeSeries
     return datasets
 
 
-def train_tft(
-    cfg: dict[str, Any], datasets: dict[str, TimeSeriesDataSet], out_dir: Path
-) -> TemporalFusionTransformer:
+def _new_model(cfg: dict[str, Any], training: TimeSeriesDataSet) -> TemporalFusionTransformer:
     tcfg = cfg["tft"]
     seed_everything(cfg["random_seed"], workers=True)
-
-    model = TemporalFusionTransformer.from_dataset(
-        datasets["train"],
+    return TemporalFusionTransformer.from_dataset(
+        training,
         hidden_size=tcfg["hidden_size"],
         attention_head_size=tcfg["attention_head_size"],
         hidden_continuous_size=tcfg["hidden_continuous_size"],
@@ -105,6 +107,13 @@ def train_tft(
         reduce_on_plateau_patience=tcfg["reduce_on_plateau_patience"],
         log_interval=-1,
     )
+
+
+def train_tft(
+    cfg: dict[str, Any], datasets: dict[str, TimeSeriesDataSet], out_dir: Path
+) -> TemporalFusionTransformer:
+    tcfg = cfg["tft"]
+    model = _new_model(cfg, datasets["train"])
     logger.info("TFT parameters: %d", sum(p.numel() for p in model.parameters()))
 
     checkpoint = ModelCheckpoint(
@@ -140,40 +149,86 @@ def train_tft(
     return TemporalFusionTransformer.load_from_checkpoint(checkpoint.best_model_path)
 
 
-def predict_tft(
+def checkpoint_epochs(path: str | Path) -> int:
+    """Number of epochs the saved model had trained for when its checkpoint was written."""
+    import torch
+
+    return int(torch.load(path, map_location="cpu", weights_only=False)["epoch"]) + 1
+
+
+def refit_tft(
+    cfg: dict[str, Any], training: TimeSeriesDataSet, epochs: int, log_dir: Path | None = None
+) -> TemporalFusionTransformer:
+    """Fresh model trained for a fixed number of epochs, with no validation data held back."""
+    model = _new_model(cfg, training)
+    trainer = Trainer(
+        max_epochs=epochs,
+        accelerator="cpu",
+        gradient_clip_val=cfg["tft"]["gradient_clip_val"],
+        limit_val_batches=0,
+        num_sanity_val_steps=0,
+        enable_checkpointing=False,
+        logger=CSVLogger(save_dir=log_dir, name="logs") if log_dir is not None else False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+    )
+    trainer.fit(
+        model,
+        train_dataloaders=training.to_dataloader(
+            train=True, batch_size=cfg["tft"]["batch_size"], num_workers=0
+        ),
+    )
+    return model
+
+
+def predict_dataset(
     cfg: dict[str, Any],
     data: ModelData,
     model: TemporalFusionTransformer,
-    datasets: dict[str, TimeSeriesDataSet],
-) -> pd.DataFrame:
+    dataset: TimeSeriesDataSet,
+    split: str,
+) -> list[pd.DataFrame]:
+    """Forecast rows (unfinalized) for every window in `dataset`, labelled with `split`."""
     roles = data.roles
     quantiles = cfg["forecast"]["quantiles"]
     horizon = cfg["forecast"]["horizon"]
     time_idx, group = roles["time_idx"], roles["group"]
     by_group = {crop: g.set_index(time_idx).sort_index() for crop, g in data.frame.groupby(group)}
 
+    pred = model.predict(
+        dataset.to_dataloader(train=False, batch_size=cfg["tft"]["batch_size"], num_workers=0),
+        mode="quantiles",
+        return_index=True,
+        trainer_kwargs={"accelerator": "cpu", "logger": False, "enable_progress_bar": False},
+    )
+    values = pred.output.detach().cpu().numpy()
+    frames = []
+    for i, row in enumerate(pred.index.itertuples(index=False)):
+        g = by_group[getattr(row, group)]
+        first = int(getattr(row, time_idx))
+        decoder = g.loc[first : first + horizon - 1].reset_index()
+        origin = g.loc[first - 1, "date"]
+        frames.append(
+            forecast_rows(
+                MODEL_NAME, getattr(row, group), split, origin, decoder,
+                values[i], quantiles, roles["target"], roles["observed_flag"],
+            )
+        )
+    return frames
+
+
+def predict_tft(
+    cfg: dict[str, Any],
+    data: ModelData,
+    model: TemporalFusionTransformer,
+    datasets: dict[str, TimeSeriesDataSet],
+) -> pd.DataFrame:
     frames = []
     for split in cfg["forecast"]["predict_splits"]:
-        pred = model.predict(
-            datasets[split].to_dataloader(train=False, batch_size=cfg["tft"]["batch_size"], num_workers=0),
-            mode="quantiles",
-            return_index=True,
-            trainer_kwargs={"accelerator": "cpu", "logger": False, "enable_progress_bar": False},
-        )
-        values = pred.output.detach().cpu().numpy()
-        for i, row in enumerate(pred.index.itertuples(index=False)):
-            g = by_group[getattr(row, group)]
-            first = int(getattr(row, time_idx))
-            decoder = g.loc[first : first + horizon - 1].reset_index()
-            origin = g.loc[first - 1, "date"]
-            frames.append(
-                forecast_rows(
-                    MODEL_NAME, getattr(row, group), split, origin, decoder,
-                    values[i], quantiles, roles["target"], roles["observed_flag"],
-                )
-            )
-        logger.info("TFT forecast %d %s windows", len(pred.index), split)
-    return finalize_forecasts(frames, quantiles)
+        split_frames = predict_dataset(cfg, data, model, datasets[split], split)
+        logger.info("TFT forecast %d %s windows", len(split_frames), split)
+        frames.extend(split_frames)
+    return finalize_forecasts(frames, cfg["forecast"]["quantiles"])
 
 
 def run_tft(cfg: dict[str, Any], data: ModelData, out_dir: Path) -> pd.DataFrame:

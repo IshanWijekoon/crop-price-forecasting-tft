@@ -20,7 +20,7 @@ python -m src.main --stages sarimax
 
 Parameters are estimated once on the training split. For each validation and test window, the fitted parameters are re-applied (`results.apply`) to the history up to the origin, including validation/test quotes already known by then, and `get_forecast` projects 60 days with the window's exogenous rows. Quantiles are `mean + z_q · se` on the log scale, exponentiated, which gives log-normal price quantiles (q10, q50, q90).
 
-Refitting the parameters at each origin (expanding-window walk-forward) is left to `src/evaluation/`. `SarimaxForecaster.fit` and `.forecast` are the hooks for it.
+The `walkforward` stage (`src/evaluation/walk_forward_validation.py`) keeps the selected order, re-estimates the parameters every 30 days on an expanding window over the test split, and writes `artifacts/forecasts/sarimax_walkforward_forecasts.csv`.
 
 ## Outputs
 

@@ -1,6 +1,6 @@
 # System Architecture
 
-This document describes the software architecture for the crop price forecasting research repository. Data build, input preparation, and both forecasting models are implemented; the evaluation modules are still stubs.
+This document describes the software architecture for the crop price forecasting research repository. Data build, input preparation, both forecasting models, walk-forward validation, and evaluation are implemented.
 
 ## Pipeline Overview
 
@@ -64,14 +64,16 @@ Both write the same forecast table (`src/models/forecast_output.py`): one row pe
 
 ### 6. Evaluation (`src/evaluation/`)
 
+- Protocol: expanding-window walk-forward over the test split, both models refit every 30 days (`walk_forward_validation.py`)
 - Point metrics: MAE, RMSE, MAPE
-- Probabilistic metrics: quantile (pinball) loss, PICP
-- Protocol: walk-forward validation
-- Significance: Diebold–Mariano test
+- Probabilistic metrics: quantile (pinball) loss, PICP, interval width
+- Significance: Diebold–Mariano test with the Harvey–Leybourne–Newbold correction
+
+Scored only on days with a real quote. Outputs in `artifacts/evaluation/`; see `src/evaluation/README.md`.
 
 ### 7. Entrypoint
 
-`src/main.py` runs the stages `build`, `prepare`, `sarimax`, and `tft` in that order (`--stages` selects a subset). An evaluation stage will follow once `src/evaluation/` is implemented.
+`src/main.py` runs the stages `build`, `prepare`, `sarimax`, `tft`, `walkforward`, and `evaluate` in that order (`--stages` selects a subset).
 
 ## Configuration
 

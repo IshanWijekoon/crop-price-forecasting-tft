@@ -141,3 +141,20 @@ tft:
   max_epochs: 30
   early_stopping_patience: 5
   gradient_clip_val: 0.1
+
+evaluation:
+  walk_forward:
+    # Expanding window over this split: both models are re-estimated on every row known at a
+    # refit date, then forecast each daily origin until the next refit.
+    split: "test"
+    refit_every_days: 30
+    # Epochs per TFT refit, with no data held back for early stopping.
+    # null = the epoch count of the validation-selected checkpoint (artifacts/models/tft/tft-best.ckpt).
+    tft_epochs: null
+  # Central prediction interval scored by PICP; both bounds must be in forecast.quantiles.
+  interval: [0.1, 0.9]
+  # Upper edges, in days ahead, of the buckets in metrics_by_horizon.csv.
+  horizon_buckets: [15, 30, 45, 60]
+  dm_alpha: 0.05
+  # absolute_error: |y - q50|. pinball: pinball loss averaged over forecast.quantiles.
+  dm_losses: ["absolute_error", "pinball"]

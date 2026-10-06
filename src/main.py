@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from typing import Callable
 
+from src.evaluation.evaluate import run_evaluation
+from src.evaluation.walk_forward_validation import run_walk_forward
 from src.features.build_dataset import build_dataset
 from src.features.prepare_model_data import run_prepare
 from src.models.train import run_sarimax_stage, run_tft_stage
@@ -18,6 +20,8 @@ STAGES: dict[str, Callable[[Path], object]] = {
     "prepare": run_prepare,
     "sarimax": run_sarimax_stage,
     "tft": run_tft_stage,
+    "walkforward": run_walk_forward,
+    "evaluate": run_evaluation,
 }
 
 
@@ -26,7 +30,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description=(
             "Crop price forecasting research pipeline. "
             "build: observed dataset; prepare: train-only Min-Max scaling and forecast windows; "
-            "sarimax / tft: fit the model and write 60-day quantile forecasts to artifacts/forecasts/."
+            "sarimax / tft: fit the model and write 60-day quantile forecasts to artifacts/forecasts/; "
+            "walkforward: expanding-window refits of both models over the test split; "
+            "evaluate: metrics, Diebold-Mariano tests, and plots in artifacts/evaluation/."
         ),
     )
     parser.add_argument(

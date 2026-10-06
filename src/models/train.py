@@ -20,8 +20,8 @@ from src.utils.helpers import ensure_dir, load_config
 logger = logging.getLogger(__name__)
 
 
-def _write_forecasts(forecasts: pd.DataFrame, artifacts: Path, model: str) -> Path:
-    path = ensure_dir(artifacts / "forecasts") / f"{model}_forecasts.csv"
+def write_forecasts(forecasts: pd.DataFrame, artifacts: Path, model: str, suffix: str = "") -> Path:
+    path = ensure_dir(artifacts / "forecasts") / f"{model}{suffix}_forecasts.csv"
     forecasts.to_csv(path, index=False, date_format="%Y-%m-%d")
     counts = forecasts.groupby(["split", "crop"])["origin"].nunique().to_dict()
     logger.info("Wrote %s forecasts -> %s (origins per split and crop: %s)", model, path, counts)
@@ -37,7 +37,7 @@ def run_sarimax_stage(config_path: str | Path = "configs/config.yaml") -> Path:
     selection_path = ensure_dir(artifacts / "models" / MODEL_NAME) / "selection.json"
     selection_path.write_text(json.dumps(selection, indent=2), encoding="utf-8")
     logger.info("Wrote SARIMAX order selection -> %s", selection_path)
-    return _write_forecasts(forecasts, artifacts, MODEL_NAME)
+    return write_forecasts(forecasts, artifacts, MODEL_NAME)
 
 
 def run_tft_stage(config_path: str | Path = "configs/config.yaml") -> Path:
@@ -47,4 +47,4 @@ def run_tft_stage(config_path: str | Path = "configs/config.yaml") -> Path:
     cfg = load_config(config_path)
     artifacts = Path(cfg["paths"]["artifacts"])
     forecasts = run_tft(cfg, prepare_model_data(cfg), artifacts / "models" / MODEL_NAME)
-    return _write_forecasts(forecasts, artifacts, MODEL_NAME)
+    return write_forecasts(forecasts, artifacts, MODEL_NAME)

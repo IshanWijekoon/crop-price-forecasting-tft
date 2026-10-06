@@ -1,6 +1,6 @@
 # Research Methodology
 
-High-level methodology for the proposal milestone. This document describes **planned** methods; no experiments have been executed yet.
+High-level methodology for the proposal milestone. This document describes the **planned** methods. What was actually run, and how it differs, is in `docs/dataset.md`, the model READMEs, and `src/evaluation/README.md`.
 
 ## Problem Setting
 

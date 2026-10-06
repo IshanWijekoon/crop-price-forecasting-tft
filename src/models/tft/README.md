@@ -26,6 +26,8 @@ Hidden size 16, 1 attention head, continuous hidden size 8, 1 LSTM layer, dropou
 
 Because the validation windows choose the checkpoint, only the test forecasts are fully out of sample.
 
+The `walkforward` stage (`src/evaluation/walk_forward_validation.py`) retrains a fresh model every 30 days over the test split on every window known at the refit date. Nothing is held back for early stopping, so each refit trains for the epoch count of the best checkpoint (`evaluation.walk_forward.tft_epochs: null`). It writes `artifacts/forecasts/tft_walkforward_forecasts.csv`.
+
 ## Outputs
 
 | File | Content |
