@@ -32,6 +32,7 @@ dependencies = [
     "lightning",
     "pytorch-forecasting",
     "pyyaml",
+    "lxml",
     "tqdm",
     "scipy",
 ]

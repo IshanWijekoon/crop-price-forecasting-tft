@@ -1,4 +1,4 @@
-# Experiment configuration placeholders for crop price forecasting research.
+# Experiment configuration for crop price forecasting research.
 # Model hyperparameters will be added in later milestones.
 
 paths:
@@ -8,7 +8,7 @@ paths:
   artifacts: "artifacts"
 
 forecast:
-  # Target probabilistic forecast horizon in days.
+  # Target probabilistic forecast horizon in calendar days.
   horizon: 60
   # Look-back window length used for sequence generation (to be tuned).
   window_size: 90
@@ -20,6 +20,41 @@ splits:
   test: 0.15
 
 random_seed: 42
+
+# Observed-data panel built by src/features/build_dataset.py. See docs/dataset.md.
+dataset:
+  sources:
+    cbsl_prices: "Data.xls"
+    wfp_prices: "wfp_food_prices_lka.csv"
+    weather_daily: "sources/weather_daily.csv"
+    dekadal_rainfall: "lka-rainfall-subnat-full.csv"
+    fuel_revisions: "sources/fuel_revisions_cpc.csv"
+    fuel_daily_check: "sources/fuel_daily.csv"
+    usd_lkr_daily: "sources/usd_lkr_daily.csv"
+  target:
+    source: "CBSL"
+    market: "Dambulla"
+    price_type: "wholesale"
+    crops: ["beans", "cabbage", "carrot"]
+    # Independent market used to confirm or reject large one-day price jumps.
+    corroborating_market: "Pettah"
+  wfp_commodities:
+    "Beans": "beans"
+    "Cabbage": "cabbage"
+    "Carrots": "carrot"
+    "Potatoes (local)": "potato"
+  districts:
+    nuwara_eliya: "LK23"
+    badulla: "LK81"
+  covariate_start: "2018-01-01"
+  covariate_end: "2025-12-31"
+  # Calendar-day lags of the last quoted price.
+  price_lags: [1, 7, 14, 30, 60]
+  # Price rolling stats over the previous N quotes (trading days), excluding the current day.
+  price_rolling_quotes: [5, 22]
+  # Rainfall rolling sums over previous calendar days, excluding the current day.
+  rainfall_rolling_windows: [7, 30]
+  anomaly_mad_z: 6.0
 
 # Placeholder sections reserved for future model configuration.
 # sarimax: {}

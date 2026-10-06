@@ -9,6 +9,7 @@ torchaudio
 lightning
 pytorch-forecasting
 pyyaml
+lxml
 tqdm
 scipy
 jupyter

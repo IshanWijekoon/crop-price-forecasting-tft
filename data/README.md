@@ -18,4 +18,4 @@ This directory stores research datasets used by the crop price forecasting pipel
 
 ## Current status
 
-No datasets are included in this milestone. Place acquired files under the appropriate subfolder when the data milestone begins.
+Raw sources sit in `raw/` (not committed). `python -m src.main --stages build` writes the observed-data panel to `processed/`. Sources, exclusions, column roles, and splits are documented in [`docs/dataset.md`](../docs/dataset.md).

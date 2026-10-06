@@ -107,8 +107,9 @@ crop-price-forecasting-tft/
 - [x] Repository created
 - [x] Folder structure
 - [x] Configuration and packaging (`config.yaml`, `pyproject.toml`, `requirements.txt`)
-- [x] Data preprocessing module (stubs)
-- [x] Feature engineering module (stubs)
+- [x] Data preprocessing module (cleaning, deduplication, covariate imputation, daily alignment)
+- [x] Feature engineering module (lags, rolling stats, calendar/monsoon features, train-only scaling)
+- [x] Observed dataset build: CBSL daily Dambulla wholesale target with weather, rainfall, fuel, and FX covariates (`python -m src.main --stages build`, see `docs/dataset.md`)
 - [x] Evaluation module (stubs)
 - [x] Documentation (`docs/`, model READMEs)
 - [ ] SARIMAX implementation
