@@ -74,7 +74,7 @@ Price rolling windows count quotes, not calendar days, because the April Sinhala
 4. **Covariate imputation.** Weather: time interpolation per district. Fuel and FX: forward fill, flagged. Target: never imputed.
 5. **Alignment.** Every series is reindexed onto one daily calendar; district covariates are pivoted to columns and joined on date.
 6. **Features.** Lags, quote-based rolling stats, calendar and monsoon features.
-7. **Scaling.** Not applied in the saved files. `src/features/normalize_features.py` fits Min-Max on training rows only (`fit_mask`) and reuses that scaler for validation and test.
+7. **Scaling.** Not applied in `modeling_panel.csv`. The `prepare` stage (below) fits Min-Max on training rows only and reuses that scaler for validation and test.
 
 ### Anomaly checks
 
@@ -124,6 +124,47 @@ Chronological, shared by all three crops. The first 60 days are warm-up because 
 - **Shock in the test period.** The test split includes the late-November 2025 cyclone price spike, which is outside anything seen in training for carrot and cabbage at that scale.
 - **Reanalysis weather.** Open-Meteo values are gridded reanalysis, not station observations.
 
-## Consequences for the model stages
+## Model inputs (`prepare` stage)
 
-The original plan assumed a monthly target (horizon 2 months, encoder 12 months, SARIMAX seasonal period 12). With a daily target those settings no longer apply: the horizon is 60 calendar days and the encoder length is in days. A yearly SARIMAX season is not estimable from this history; a weekly period is the realistic candidate. These are set in the model stages, not in this build.
+```bash
+python -m src.main --stages prepare
+```
+
+`src/features/prepare_model_data.py` reads `modeling_panel.csv` and the `features`, `forecast`, and `sarimax` sections of `configs/config.yaml`, and writes three more gitignored files:
+
+| File | Content |
+|------|---------|
+| `model_frame.csv` | Panel without warm-up rows (2,706 rows = 3 crops x 902 days). Predictors Min-Max scaled; target, flags, and categoricals left raw. |
+| `forecast_windows.csv` | One row per crop and forecast origin: `encoder_start`, `origin`, `decoder_start`, `decoder_end`, `split`, `observed_targets`. |
+| `minmax_scaler.json` | Training min and max per scaled column, and the training period they were fitted on. |
+
+Steps:
+
+1. **Horizon-lagged SARIMAX exogenous inputs.** Each column in `sarimax.exog` gets a copy shifted by `sarimax.exog_lag_days` (60) days, named `{column}_lag_60`. For any decoder day t+h with h ≤ 60, that value comes from day t or earlier, so it is known when the forecast is made. The shift is taken before the warm-up is dropped, so the first training day uses the first warm-up day. TFT gets the same information by seeing those covariates only in its encoder.
+2. **Warm-up dropped.** The 60 warm-up days exist only to fill `price_lag_60`. After dropping them, no predictor has an empty cell; the build fails if one does.
+3. **Min-Max on training rows only.** `known_reals`, `observed_reals`, and the lagged SARIMAX inputs are scaled to [0, 1] using training rows (2023-07-14 to 2025-04-04). Validation and test use that scaler as is, so values can fall outside [0, 1]. In this build, test rainfall reaches 2.38 for Nuwara Eliya daily rainfall because of the November 2025 cyclone. The target `price_lkr_per_kg`, `price_ffill`, the 0/1 flags, `crop`, and `season` are not scaled.
+4. **Sliding windows.** Encoder = 90 calendar days (`forecast.window_size`) ending at the origin; decoder = the next 60 days (`forecast.horizon`); origins one day apart (`forecast.origin_step`). A window is labelled with the split that contains its whole decoder; windows whose decoder crosses a split boundary are dropped. The encoder may reach back into earlier splits, because those days are already known at the origin.
+
+| Split | Windows per crop | Origins |
+|-------|------------------|---------|
+| Train | 482 | 2023-10-11 to 2025-02-03 |
+| Validation | 76 | 2025-04-04 to 2025-06-18 |
+| Test | 77 | 2025-08-17 to 2025-11-01 |
+
+### Column roles in `configs/config.yaml` (`features`)
+
+| Role | Columns |
+|------|---------|
+| Static categorical | `crop` |
+| Known-future categorical | `season` |
+| Known-future real (scaled) | `month_sin`, `month_cos`, `day_of_week`, `day_of_year` |
+| Known-future flag | `market_open` |
+| Observed real (scaled) | price lags 1/7/14/30/60, quote-based rolling mean/std 5q/22q, diesel, petrol 92, USD/LKR, and for both districts: daily rainfall, mean temperature, ET0, 30-day rainfall sum, dekadal rainfall anomaly |
+| Observed flag | `price_is_carried_forward`, `fuel_revision_day`, `usd_lkr_carried_forward` |
+| Target / scoring mask | `price_lkr_per_kg` / `price_observed` |
+
+Left out of the model roles: `year` and `week_of_year`, which repeat information already in the other calendar columns; tmin, tmax, the 7-day rainfall sum, and dekadal rainfall totals, which overlap strongly with the columns kept; and `weather_imputed`, which is 0 on every row.
+
+### Settings that differ from the monthly plan
+
+The original plan assumed a monthly target: horizon 2 months, encoder 12 months, SARIMAX seasonal period 12. With a daily target, the horizon is 60 calendar days, the encoder is 90 days, and the SARIMAX order grid uses a weekly seasonal period of 7. A yearly SARIMAX season cannot be estimated from one and a half years of training data.

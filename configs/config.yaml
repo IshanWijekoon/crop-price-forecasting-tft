@@ -1,5 +1,4 @@
 # Experiment configuration for crop price forecasting research.
-# Model hyperparameters will be added in later milestones.
 
 paths:
   raw: "data/raw"
@@ -8,10 +7,13 @@ paths:
   artifacts: "artifacts"
 
 forecast:
-  # Target probabilistic forecast horizon in calendar days.
+  # Forecast horizon in calendar days. The panel is daily, so this is 60 rows per crop.
   horizon: 60
-  # Look-back window length used for sequence generation (to be tuned).
+  # Encoder length (look-back) in calendar days fed to each forecast.
   window_size: 90
+  quantiles: [0.1, 0.5, 0.9]
+  # Days between consecutive forecast origins when cutting sliding windows.
+  origin_step: 1
 
 splits:
   # Chronological split ratios (must sum to 1.0).
@@ -56,6 +58,75 @@ dataset:
   rainfall_rolling_windows: [7, 30]
   anomaly_mad_z: 6.0
 
-# Placeholder sections reserved for future model configuration.
-# sarimax: {}
-# tft: {}
+# Column roles used by both models (src/features/prepare_model_data.py).
+features:
+  target: "price_lkr_per_kg"
+  # Last quote carried over closed days. Model input only; never scored.
+  target_filled: "price_ffill"
+  # 1 where the target was actually quoted. Scoring mask and loss weight.
+  observed_flag: "price_observed"
+  group: "crop"
+  time_idx: "time_idx"
+  static_categoricals: ["crop"]
+  known_categoricals: ["season"]
+  known_reals: ["month_sin", "month_cos", "day_of_week", "day_of_year"]
+  known_flags: ["market_open"]
+  observed_reals:
+    - "price_lag_1"
+    - "price_lag_7"
+    - "price_lag_14"
+    - "price_lag_30"
+    - "price_lag_60"
+    - "price_roll_mean_5q"
+    - "price_roll_std_5q"
+    - "price_roll_mean_22q"
+    - "price_roll_std_22q"
+    - "diesel_lkr_per_litre"
+    - "petrol92_lkr_per_litre"
+    - "usd_lkr"
+    - "nuwara_eliya_rainfall_mm"
+    - "badulla_rainfall_mm"
+    - "nuwara_eliya_tmean_c"
+    - "badulla_tmean_c"
+    - "nuwara_eliya_et0_mm"
+    - "badulla_et0_mm"
+    - "nuwara_eliya_rainfall_roll_sum_30"
+    - "badulla_rainfall_roll_sum_30"
+    - "nuwara_eliya_rain_dekad_anomaly_pct"
+    - "badulla_rain_dekad_anomaly_pct"
+  observed_flags: ["price_is_carried_forward", "fuel_revision_day", "usd_lkr_carried_forward"]
+  # Applied to known_reals and observed_reals, fitted on training rows only. Flags and target stay raw.
+  scaling: "minmax"
+
+sarimax:
+  # One model per crop on the daily calendar; closed-market days are missing endog.
+  seasonal_period: 7
+  order_grid:
+    p: [0, 1, 2]
+    d: [0, 1]
+    q: [0, 1]
+  seasonal_order_grid:
+    P: [0, 1]
+    D: [0]
+    Q: [0, 1]
+  information_criterion: "aic"
+  # Observed covariates shifted by the horizon so every value is known at the forecast origin.
+  exog:
+    - "diesel_lkr_per_litre"
+    - "usd_lkr"
+    - "nuwara_eliya_rainfall_roll_sum_30"
+    - "badulla_rainfall_roll_sum_30"
+    - "nuwara_eliya_tmean_c"
+    - "badulla_tmean_c"
+  exog_lag_days: 60
+
+tft:
+  hidden_size: 16
+  attention_head_size: 1
+  hidden_continuous_size: 8
+  dropout: 0.1
+  learning_rate: 0.01
+  batch_size: 64
+  max_epochs: 30
+  early_stopping_patience: 5
+  gradient_clip_val: 0.1

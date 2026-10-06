@@ -41,7 +41,12 @@ Construct lag, rolling, and calendar/temporal features, then normalize predictor
 
 ### Sequence Generation
 
-Convert engineered panels into supervised sequences with a configurable look-back window and 60-day forecast horizon (configured in `configs/config.yaml`). Implementation is reserved for a later milestone.
+The `prepare` stage (`src/features/prepare_model_data.py`, `src/features/windows.py`) drops the warm-up rows, fits Min-Max on training rows only, and cuts sliding windows: a 90-day encoder and a 60-day decoder, with origins one day apart. Each window is assigned to the split that holds its whole decoder. Settings are in `configs/config.yaml` (`forecast`, `features`); see `docs/dataset.md`.
+
+```bash
+python -m src.main                    # build, then prepare
+python -m src.main --stages prepare   # re-scale and re-window an existing panel
+```
 
 ### Forecasting Models
 
@@ -80,7 +85,7 @@ crop-price-forecasting-tft/
 │   │   └── tft/           # Temporal Fusion Transformer (placeholder)
 │   ├── evaluation/        # Metrics, walk-forward CV, statistical tests
 │   ├── utils/             # Logging and helpers
-│   └── main.py            # Pipeline entrypoint stub
+│   └── main.py            # Pipeline entrypoint (build, prepare)
 ├── configs/               # Experiment configuration (YAML)
 ├── docs/                  # Architecture and methodology notes
 ├── README.md
@@ -110,6 +115,7 @@ crop-price-forecasting-tft/
 - [x] Data preprocessing module (cleaning, deduplication, covariate imputation, daily alignment)
 - [x] Feature engineering module (lags, rolling stats, calendar/monsoon features, train-only scaling)
 - [x] Observed dataset build: CBSL daily Dambulla wholesale target with weather, rainfall, fuel, and FX covariates (`python -m src.main --stages build`, see `docs/dataset.md`)
+- [x] Model inputs: column roles, train-only Min-Max scaling, horizon-lagged SARIMAX exogenous inputs, 90/60-day sliding windows (`python -m src.main --stages prepare`)
 - [x] Evaluation module (stubs)
 - [x] Documentation (`docs/`, model READMEs)
 - [ ] SARIMAX implementation

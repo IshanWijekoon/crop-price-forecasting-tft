@@ -37,3 +37,14 @@ def normalize_features(
 
     out[columns] = fitted_scaler.transform(out[columns])
     return out, fitted_scaler
+
+
+def scaler_to_dict(scaler: Any, columns: Sequence[str]) -> dict[str, dict[str, float]]:
+    """Per-column fitted parameters, for saving next to the scaled data."""
+    if isinstance(scaler, MinMaxScaler):
+        params = {"min": scaler.data_min_, "max": scaler.data_max_}
+    elif isinstance(scaler, StandardScaler):
+        params = {"mean": scaler.mean_, "std": scaler.scale_}
+    else:
+        raise TypeError(f"Unsupported scaler {type(scaler).__name__}")
+    return {c: {k: float(v[i]) for k, v in params.items()} for i, c in enumerate(columns)}
