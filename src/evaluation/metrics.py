@@ -60,4 +60,15 @@ def calculate_quantile_loss(y_true: ArrayLike, y_pred: ArrayLike, quantile: floa
     return float(pinball_losses(y_true, y_pred, quantile).mean())
 
 
+def calculate_picp(y_true: ArrayLike, lower: ArrayLike, upper: ArrayLike) -> float:
+    """Share of targets inside the closed interval [lower, upper]."""
+    y_true, lower = _pair(y_true, lower)
+    _, upper = _pair(y_true, upper)
+    if (lower > upper).any():
+        raise ValueError("Interval lower bound exceeds upper bound")
+    return float(np.mean((y_true >= lower) & (y_true <= upper)))
 
+
+def calculate_interval_width(lower: ArrayLike, upper: ArrayLike) -> float:
+    lower, upper = _pair(lower, upper)
+    return float(np.mean(upper - lower))
