@@ -319,12 +319,4 @@ def run_evaluation(config_path: str | Path = "configs/config.yaml") -> dict[str,
     )
     paths["summary"] = write_summary(metrics, dm, cfg, folds, out_dir / "summary.md")
 
-    for name, path in paths.items():
-        logger.info("Wrote %s -> %s", name, path)
-    pooled = metrics[metrics["crop"].eq(ALL)]
-    for r in pooled.itertuples(index=False):
-        logger.info(
-            "%s %s %s: MAE=%.1f RMSE=%.1f MAPE=%.1f%% QL=%.2f PICP=%.2f",
-            r.protocol, r.split, r.model, r.mae, r.rmse, r.mape_pct, r.quantile_loss, r.picp,
-        )
-    return paths
+    
