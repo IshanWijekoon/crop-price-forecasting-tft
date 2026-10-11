@@ -84,4 +84,17 @@ def diebold_mariano_test(
         "variance_estimator": estimator,
         "alternative": alternative,
     }
-    
+    if lrv <= 0:
+        logger.warning("DM test: loss differential has zero variance; statistic undefined")
+        return {**result, "dm_stat": float("nan"), "hln_stat": float("nan"), "p_value": float("nan")}
+
+    dm_stat = float(d.mean() / np.sqrt(lrv / n))
+    hln_stat = float(np.sqrt(hln_ratio) * dm_stat)
+    dist = stats.t(df=n - 1)
+    if alternative == "two-sided":
+        p_value = 2.0 * dist.sf(abs(hln_stat))
+    elif alternative == "less":
+        p_value = dist.cdf(hln_stat)
+    else:
+        p_value = dist.sf(hln_stat)
+    return {**result, "dm_stat": dm_stat, "hln_stat": hln_stat, "p_value": float(p_value)}
